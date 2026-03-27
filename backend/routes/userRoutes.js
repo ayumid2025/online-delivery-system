@@ -1,25 +1,86 @@
 const express = require('express');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
+const Order = require('../models/Order');
 const User = require('../models/User');
 
 const router = express.Router();
 
-// Register User
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  try {
-    const user = await User.findOne({ where: { email } });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+// Create a new order (customer)
+router.post('/', async (req, res) => {
+    const { customer_id, pickup_address, delivery_address, total_price } = req.body;
+    try {
+        const order = await Order.create({
+            customer_id,
+            pickup_address,
+            delivery_address,
+            total_price
+        });
+        res.json(order);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
 
-    const match = await bcrypt.compare(password, user.password_hash);
-    if (!match) return res.status(401).json({ error: 'Invalid password' });
+// Assign a driver to an order (admin/system)
+router.put('/assign/:orderId', async (req, res) => {
+    const { orderId } = req.params;
+    const { driver_id } = req.body;
+    try {
+        const order = await Order.findByPk(orderId);
+        if (!order) return res.status(404).json({ error: 'Order not found' });
+        order.driver_id = driver_id;
+        order.status = 'accepted';
+        await order.save();
+        res.json(order);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
 
-    const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
-    res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role }, token });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+// Update order status (driver/system)
+router.put('/status/:orderId', async (req, res) => {
+    const { orderId } = req.params;
+    const { status } = req.body; // 'picked_up','delivered','canceled'
+    try {
+        const order = await Order.findByPk(orderId);
+        if (!order) return res.status(404).json({ error: 'Order not found' });
+        order.status = status;
+        await order.save();
+        res.json(order);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Fetch orders for customer
+router.get('/customer/:customerId', async (req, res) => {
+    const { customerId } = req.params;
+    try {
+        const orders = await Order.findAll({ where: { customer_id: customerId } });
+        res.json(orders);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Fetch orders for driver
+router.get('/driver/:driverId', async (req, res) => {
+    const { driverId } = req.params;
+    try {
+        const orders = await Order.findAll({ where: { driver_id: driverId } });
+        res.json(orders);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Fetch all orders (admin)
+router.get('/all', async (req, res) => {
+    try {
+        const orders = await Order.findAll();
+        res.json(orders);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
 module.exports = router;
