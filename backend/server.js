@@ -1,20 +1,33 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
 
-const userRoutes = require('./routes/userRoutes');
-app.use('/api/users', userRoutes);
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// Routes
-app.get('/', (req, res) => {
-    res.send('Online Delivery System Backend Running');
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*' }
 });
 
-// Start Server
+// Socket.io connection
+io.on('connection', (socket) => {
+    console.log('New client connected:', socket.id);
+
+    // Listen for driver location updates
+    socket.on('driverLocationUpdate', (data) => {
+        console.log('Driver location:', data);
+        // Broadcast location to all clients
+        io.emit('driverLocation', data);
+    });
+
+    // Listen for traffic updates
+    socket.on('trafficUpdate', (data) => {
+        console.log('Traffic update:', data);
+        // Broadcast traffic data to all clients
+        io.emit('trafficData', data);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+    });
+});
+
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
