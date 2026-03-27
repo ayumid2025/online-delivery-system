@@ -6,6 +6,9 @@ const io = new Server(server, {
   cors: { origin: '*' }
 });
 
+const paymentRoutes = require('./routes/paymentRoutes');
+app.use('/api/payments', paymentRoutes);
+
 // Socket.io connection
 io.on('connection', (socket) => {
     console.log('New client connected:', socket.id);
